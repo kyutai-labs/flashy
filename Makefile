@@ -9,7 +9,7 @@ install:
 
 
 install_ci:
-	pip install -U pip
+	pip install -U pip wheel setuptools
 	pip install torch --index-url https://download.pytorch.org/whl/cpu
 	pip install --no-use-pep517 git+https://github.com/facebookincubator/submitit@main#egg=submitit
 	pip install --no-use-pep517 git+https://git@github.com/facebookresearch/dora#egg=dora-search
