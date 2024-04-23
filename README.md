@@ -1,8 +1,8 @@
 # Flashy
 
-![tests badge](https://github.com/facebookresearch/flashy/workflows/tests/badge.svg)
-![linter badge](https://github.com/facebookresearch/flashy/workflows/linter/badge.svg)
-![docs badge](https://github.com/facebookresearch/flashy/workflows/docs/badge.svg)
+![tests badge](https://github.com/0x53504852/flashy/workflows/tests/badge.svg)
+![linter badge](https://github.com/0x53504852/flashy/workflows/linter/badge.svg)
+![docs badge](https://github.com/0x53504852/flashy/workflows/docs/badge.svg)
 
 
 
