@@ -10,6 +10,8 @@ to formatting strings
 import typing as tp
 from fnmatch import fnmatchcase
 
+import torch
+
 
 class Formatter:
     """Define formatting for the file and terminal loggers.
@@ -80,7 +82,11 @@ class Formatter:
         return {k: v for k, v in metrics.items() if _keep_key(k)}
 
     def __call__(self, metrics: dict) -> dict:
-        metrics = self.get_relevant_metrics(metrics)
+        new_metrics = {}
+        for key, value in self.get_relevant_metrics(metrics):
+            if isinstance(value, torch.Tensor):
+                value = value.detach().item()
+            new_metrics[key] = value
         return {
             k: format(v, self._get_format(k)) for k, v in metrics.items()
         }

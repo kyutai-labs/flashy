@@ -12,6 +12,7 @@ import os
 import typing as tp
 
 import torch
+import torch.distributed
 
 AnyPath = tp.Union[Path, str]
 
@@ -35,6 +36,50 @@ def averager(beta: float = 1):
             fix[key] = fix[key] * beta + weight
         return {key: tot / fix[key] for key, tot in total.items()}
     return _update
+
+
+class TensorAverager:
+    def __init__(self, device, beta: float = 1.):
+        self.state = torch.zeros(2, 0, device=device)
+        self.name_to_index: tp.Dict[str, int] = {}
+        self.device = device
+        self.beta = beta
+
+    def __call__(self, metrics: tp.Dict[str, tp.Union[float, torch.Tensor]],
+                 weight: tp.Union[float, torch.Tensor] = 1.) -> None:
+        for key in metrics:
+            if key not in self.name_to_index:
+                self.name_to_index[key] = len(self.name_to_index)
+        new_state = torch.zeros(2, len(self.name_to_index), device=self.device)
+        new_state[:, :self.state.shape[1]] = self.state
+        self.state = new_state
+
+        for key, value in metrics.items():
+            if isinstance(value, float):
+                value = torch.full([1], value, device=self.device)
+            else:
+                assert value.device == self.device
+                value = value.detach()
+            index = self.name_to_index[key]
+            self.state[0, index] = self.state[0, index] * self.beta + weight
+            self.state[1, index] = self.state[1, index] * self.beta + weight * value
+
+    def get_tensor_averages(self) -> tp.Dict[str, torch.Tensor]:
+        average = self.state[1] / self.state[0]
+        return {key: average[index] for key, index in self.name_to_index.items()}
+
+    def get_averages(self) -> tp.Dict[str, float]:
+        average = (self.state[1] / self.state[0]).tolist()
+        return {key: average[index] for key, index in self.name_to_index.items()}
+
+    def as_dict(self) -> tp.Dict[str, float]:
+        return self.get_averages()
+
+    def all_reduce(self) -> 'TensorAverager':
+        if not torch.distributed.is_initialized():
+            return self
+        torch.distributed.all_reduce(self.state)
+        return self
 
 
 @contextmanager

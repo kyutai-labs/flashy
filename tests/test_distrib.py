@@ -81,7 +81,7 @@ def worker(rank: int):
 
 def test_distrib():
     os.environ['WORLD_SIZE'] = str(WS)
-    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
     os.environ['MASTER_PORT'] = str(random.randrange(30000, 40000))
     ctx = mp.get_context('spawn')
     procs = []

@@ -47,7 +47,7 @@ def all_reduce(tensor: torch.Tensor, op=distributed.ReduceOp.SUM):
         return distributed.all_reduce(tensor, op)
 
 
-def average_metrics(metrics: tp.Dict[str, float], count=1.):
+def average_metrics(metrics: tp.Dict[str, float], count=1.) -> tp.Dict[str, float]:
     """Average a dictionary of metrics across all workers, using the optional
     `count` as unormalized weight.
     """
@@ -75,22 +75,52 @@ def wrap(model):
         return model
 
 
-def _check_number_of_params(params: tp.List[torch.Tensor]):
-    # utility function to check that the number of params in all workers is the same,
-    # and thus avoid a deadlock with distributed all reduce.
-    if not is_distributed() or not params:
-        return
-    tensor = torch.tensor([len(params)], device=params[0].device, dtype=torch.long)
-    all_reduce(tensor)
-    if tensor.item() != len(params) * world_size():
-        # If not all the workers have the same number, for at least one of them,
-        # this inequality will be verified.
-        raise RuntimeError(f"Mismatch in number of params: ours is {len(params)}, "
-                           "at least one worker has a different one.")
-
-
 def _is_complex_or_float(tensor):
     return torch.is_floating_point(tensor) or torch.is_complex(tensor)
+
+
+@contextmanager
+def eager_sync_gradients(params: tp.Iterable[torch.Tensor]):
+    """Similar to `sync_gradients`, except this is a context manager that will start syncing
+    gradient as soon as they become available. This can be faster, but requires backward to be
+    called no more than once!
+
+    ..Warning:: This will only synchronize gradients, for full model synchronization
+        including buffers, use `eager_sync_model`.
+    """
+    if not is_distributed():
+        yield
+        return
+    params = list([p for p in params if p.requires_grad])
+    if not params:
+        yield
+        return
+    hooks = []
+    handles = []
+    waiting_params = set(params)
+
+    def _callback(param):
+        assert param.grad is not None
+        if param not in waiting_params:
+            raise RuntimeError(f"We got a gradient twice for parameter {param}.")
+        handle = torch.distributed.all_reduce(param.grad.data, op=torch.distributed.ReduceOp.SUM, async_op=True)
+        handles.append((param, handle))
+        waiting_params.remove(param)
+
+    for param in params:
+        hooks.append(param.register_post_accumulate_grad_hook(partial(_callback)))
+
+    try:
+        yield
+    finally:
+        for hook in hooks:
+            hook.remove()
+        to_div = []
+        for param, handle in handles:
+            handle.wait()
+            assert param.grad is not None
+            to_div.append(param.grad)
+        torch._foreach_mul_(to_div, 1. / world_size())
 
 
 def average_tensors(tensors: tp.Iterable[torch.Tensor]):
@@ -100,7 +130,6 @@ def average_tensors(tensors: tp.Iterable[torch.Tensor]):
     if not is_distributed():
         return
     tensors = [tensor for tensor in tensors if _is_complex_or_float(tensor)]
-    _check_number_of_params(tensors)
     handles = []
     for tensor in tensors:
         handle = torch.distributed.all_reduce(
@@ -118,7 +147,6 @@ def broadcast_tensors(tensors: tp.Iterable[torch.Tensor], src: int = 0):
     if not is_distributed():
         return
     tensors = [tensor for tensor in tensors if _is_complex_or_float(tensor)]
-    _check_number_of_params(tensors)
     handles = []
     for tensor in tensors:
         handle = distributed.broadcast(tensor.data, src=src, async_op=True)
@@ -148,46 +176,6 @@ def sync_gradients(params: tp.Iterable[torch.Tensor]):
     """
     grads = [param.grad for param in params if param.grad is not None]
     average_tensors(grads)
-
-
-@contextmanager
-def eager_sync_gradients(params: tp.Iterable[torch.Tensor]):
-    """Similar to `sync_gradients`, except this is a context manager that will start syncing
-    gradient as soon as they become available. This can be faster, but requires backward to be
-    called no more than once!
-
-    ..Warning:: This will only synchronize gradients, for full model synchronization
-        including buffers, use `eager_sync_model`.
-    """
-    if not is_distributed():
-        yield
-        return
-    params = list([p for p in params if p.requires_grad])
-    _check_number_of_params(params)
-    hooks = []
-    handles = []
-    waiting_params = set(params)
-
-    def _callback(param, grad):
-        if param not in waiting_params:
-            raise RuntimeError(f"We got a gradient twice for parameter {param}.")
-        handle = torch.distributed.all_reduce(grad.data, op=torch.distributed.ReduceOp.SUM, async_op=True)
-        handles.append((param, grad.data, handle))
-        waiting_params.remove(param)
-
-    for param in params:
-        hooks.append(param.register_hook(partial(_callback, param)))
-
-    try:
-        yield
-    finally:
-        for hook in hooks:
-            hook.remove()
-        _check_number_of_params(list(waiting_params))  # verify all workers have the same nb of remaining params.
-        for param, grad, handle in handles:
-            handle.wait()
-            assert param.grad is not None
-            torch.div(grad, world_size(), out=param.grad)
 
 
 def sync_model(model: torch.nn.Module, sync_buffers: bool = True, average_buffers: bool = True):
