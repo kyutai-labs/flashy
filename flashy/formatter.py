@@ -83,7 +83,7 @@ class Formatter:
 
     def __call__(self, metrics: dict) -> dict:
         new_metrics = {}
-        for key, value in self.get_relevant_metrics(metrics):
+        for key, value in self.get_relevant_metrics(metrics).items():
             if isinstance(value, torch.Tensor):
                 value = value.detach().item()
             new_metrics[key] = value

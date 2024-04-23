@@ -20,10 +20,12 @@ jobs:
         key: env-${{ hashFiles('**/requirements.txt') }}
 
     - name: Install dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
       run: |
         python3 -m venv env
         . env/bin/activate
-        make install
+        make install_ci
 
     - name: Run tests
       run: |

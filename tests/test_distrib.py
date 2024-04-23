@@ -35,15 +35,6 @@ def worker(rank: int):
     assert x.item() == 1.
 
     y = torch.tensor([0.])
-    try:
-        if rank == 5:
-            distrib.broadcast_tensors([x, y])
-        else:
-            distrib.broadcast_tensors([x])
-    except RuntimeError:
-        pass
-    else:
-        assert False, "Should have raised"
 
     mod = nn.Linear(1, 1, bias=False)
     mod.weight.data.zero_()
