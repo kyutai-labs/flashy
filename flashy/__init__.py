@@ -12,4 +12,4 @@ from . import distrib, adversarial
 from .formatter import Formatter
 from .logging import ResultLogger, LogProgressBar, bold, setup_logging
 from .solver import BaseSolver
-from .utils import averager
+from .utils import averager, TensorAverager

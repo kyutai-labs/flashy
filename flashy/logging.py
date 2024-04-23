@@ -25,7 +25,7 @@ from .utils import AnyPath
 
 
 class MetricsSource(tp.Protocol):
-    def as_dict(self) -> tp.Dict[str, tp.Any]:
+    def to_dict(self) -> tp.Dict[str, tp.Any]:
         """Return metrics as a dictionary."""
         ...
 
@@ -140,14 +140,15 @@ class LogProgressBar:
         self._delimiter = delimiter
         self._items_delimiter = items_delimiter
         self._formatter = formatter
-        self._metrics_source: tp.Optional[MetricsSource] = None
         self._metrics: tp.Dict[str, tp.Any] = {}
 
     def update(self, __metrics_source: tp.Optional[MetricsSource] = None, **metrics) -> bool:
         """Update the metrics to show when logging. Return True if logging will
         happen at the end of this iteration."""
-        self._metrics_source = __metrics_source
-        self._metrics = self._formatter(metrics)
+        if self._will_log:
+            if __metrics_source is not None:
+                metrics.update(__metrics_source.to_dict())
+            self._metrics = self._formatter(metrics)
         return self._will_log
 
     def __iter__(self):
@@ -176,9 +177,6 @@ class LogProgressBar:
             return value
 
     def _log(self):
-        metrics = self._metrics
-        if self._metrics_source:
-            metrics.update(self._metrics_source.as_dict())
         self._speed = (1 + self._index) / (time.time() - self._begin)
         infos = [f"{k}{self._items_delimiter}{v}" for k, v in self._metrics.items()]
         if self._speed < 1e-4:
