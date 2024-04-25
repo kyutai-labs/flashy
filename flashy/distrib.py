@@ -80,7 +80,7 @@ def _is_complex_or_float(tensor):
 
 
 @contextmanager
-def eager_sync_gradients(params: tp.Iterable[torch.Tensor]):
+def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 0):
     """Similar to `sync_gradients`, except this is a context manager that will start syncing
     gradient as soon as they become available. This can be faster, but requires backward to be
     called no more than once!
@@ -97,14 +97,35 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor]):
         return
     hooks = []
     handles = []
+    grads = []
     waiting_params = set(params)
+    pending_coalesces = []
+
+    def _flush():
+        if not pending_coalesces:
+            return
+        with torch.distributed._coalescing_manager(async_ops=True) as cm:
+            for tensor in pending_coalesces:
+                torch.distributed.all_reduce(tensor)
+
+        handles.append(cm)
+        pending_coalesces.clear()
+
+    def _push_all_reduce(tensor):
+        if coalesce == 0:
+            handle = torch.distributed.all_reduce(param.grad.data, async_op=True)
+            handles.append(handle)
+        else:
+            pending_coalesces.append(tensor)
+            if len(pending_coalesces) >= coalesce:
+                _flush()
 
     def _callback(param):
         assert param.grad is not None
         if param not in waiting_params:
             raise RuntimeError(f"We got a gradient twice for parameter {param}.")
-        handle = torch.distributed.all_reduce(param.grad.data, op=torch.distributed.ReduceOp.SUM, async_op=True)
-        handles.append((param, handle))
+        _push_all_reduce(param.grad.data)
+        grads.append(param.grad.data)
         waiting_params.remove(param)
 
     for param in params:
@@ -113,14 +134,12 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor]):
     try:
         yield
     finally:
+        _flush()
         for hook in hooks:
             hook.remove()
-        to_div = []
-        for param, handle in handles:
+        for handle in handles:
             handle.wait()
-            assert param.grad is not None
-            to_div.append(param.grad)
-        torch._foreach_mul_(to_div, 1. / world_size())
+        torch._foreach_mul_(grads, 1. / world_size())
 
 
 def average_tensors(tensors: tp.Iterable[torch.Tensor]):
