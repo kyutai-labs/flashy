@@ -13,6 +13,7 @@ import pickle
 import typing as tp
 
 import torch
+import torch.distributed
 from torch import distributed
 from torch.nn.parallel.distributed import DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
@@ -80,7 +81,7 @@ def _is_complex_or_float(tensor):
 
 
 @contextmanager
-def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 0):
+def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 8):
     """Similar to `sync_gradients`, except this is a context manager that will start syncing
     gradient as soon as they become available. This can be faster, but requires backward to be
     called no more than once!
@@ -99,7 +100,7 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 0):
     handles = []
     grads = []
     waiting_params = set(params)
-    pending_coalesces = []
+    pending_coalesces: tp.List[torch.Tensor] = []
 
     def _flush():
         if not pending_coalesces:
@@ -113,7 +114,7 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 0):
 
     def _push_all_reduce(tensor):
         if coalesce == 0:
-            handle = torch.distributed.all_reduce(param.grad.data, async_op=True)
+            handle = torch.distributed.all_reduce(tensor, async_op=True)
             handles.append(handle)
         else:
             pending_coalesces.append(tensor)
