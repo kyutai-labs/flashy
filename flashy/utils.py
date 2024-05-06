@@ -39,6 +39,12 @@ def averager(beta: float = 1):
 
 
 class TensorAverager:
+    """Similar to `averager` but performs everything on the GPU to avoid sync points.
+
+    Args:
+        device: device on which to store the averages.
+        beta: decay rate for the exponential moving average.
+    """
     def __init__(self, device, beta: float = 1.):
         self.state = torch.zeros(2, 0, device=device)
         self.name_to_index: tp.Dict[str, int] = {}
@@ -47,6 +53,11 @@ class TensorAverager:
 
     def update(self, metrics: tp.Dict[str, tp.Union[float, torch.Tensor]],
                weight: tp.Union[float, torch.Tensor] = 1.) -> None:
+        """
+        Update the moving average, given a dict of metrics, and an optional weight for the current
+        update. Note that both the weight and metrics can be either float or Tensor.
+        If Tensors, they MUST be on the proper device already.
+        """
         for key in metrics:
             if key not in self.name_to_index:
                 self.name_to_index[key] = len(self.name_to_index)
@@ -69,20 +80,30 @@ class TensorAverager:
             self.state[1, index: index + 1] += weight * value
 
     def get_tensor_averages(self) -> tp.Dict[str, torch.Tensor]:
+        """
+        Returns a dict with all the current values of the averages. The values of the dict
+        are torch.Tensor on the original device, so that this doesn't trigger a sync point.
+        """
         average = self.state[1] / self.state[0]
         return {key: average[index] for key, index in self.name_to_index.items()}
 
     def to_dict(self) -> tp.Dict[str, float]:
+        """
+        Returns a dict with all the current values of the averages as floats.
+        This triggers a sync point.
+        """
         average = (self.state[1] / self.state[0]).tolist()
         return {key: average[index] for key, index in self.name_to_index.items()}
 
     def all_reduce(self) -> 'TensorAverager':
+        """Average metrics over all the GPUs."""
         if not torch.distributed.is_initialized():
             return self
         torch.distributed.all_reduce(self.state)
         return self
 
     def clear(self) -> None:
+        """Reset the internal state."""
         self.state.zero_()
 
 

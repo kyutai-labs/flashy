@@ -86,6 +86,9 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 8):
     gradient as soon as they become available. This can be faster, but requires backward to be
     called no more than once!
 
+    `coalesce` controls how many network calls to merge together, giving faster speed by reducing
+    the overhead.
+
     ..Warning:: This will only synchronize gradients, for full model synchronization
         including buffers, use `eager_sync_model`.
     """
