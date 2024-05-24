@@ -10,6 +10,7 @@ Improve distributed with coalesced calls, and removing  synchronization points.
 Add new TensorAverager that also eliminates sync points when averaging metrics.
 Add support for using a TensorAverager in the LogProgressBar to also avoid sync points
 unless when actually logging.
+Use weakrefs in AttributeWrapper to avoid creating cycles.
 
 ## [0.0.3]
 

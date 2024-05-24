@@ -16,6 +16,7 @@ The StateManager itself implements the state dict protocol.
 """
 
 import typing as tp
+import weakref
 
 
 StateDict = tp.Any  # we don't really care if those are really dicts or not
@@ -33,8 +34,15 @@ class StateDictSource(tp.Protocol):
 class AttributeWrapper:
     """Turn any attribute into a `StateDictSource`."""
     def __init__(self, owner: tp.Any, name: str):
-        self.owner = owner
+        self.owner_ref = weakref.ref(owner)
         self.name = name
+
+    @property
+    def owner(self):
+        owner = self.owner_ref()
+        if owner is None:
+            raise RuntimeError(f"Attribute source for attribute {self.name} went away!")
+        return owner
 
     def load_state_dict(self, state: StateDict):
         attr = getattr(self.owner, self.name)
