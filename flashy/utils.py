@@ -31,9 +31,16 @@ def averager(beta: float = 1):
 
     def _update(metrics: tp.Dict[str, tp.Any], weight: float = 1) -> tp.Dict[str, float]:
         nonlocal total, fix
+        counts = {}
+        for key, value in list(metrics.values()):
+            if key.startswith('_count_'):
+                key = key.removeprefix('_count_')
+                counts[key] = value
+                del metrics[key]
         for key, value in metrics.items():
-            total[key] = total[key] * beta + weight * float(value)
-            fix[key] = fix[key] * beta + weight
+            count = counts.get(key, 1.)
+            total[key] = total[key] * beta + count * weight * float(value)
+            fix[key] = fix[key] * beta + count * weight
         return {key: tot / fix[key] for key, tot in total.items()}
     return _update
 
