@@ -6,7 +6,7 @@
 
 # flake8: noqa
 
-__version__ = '0.1.0a2'
+__version__ = '0.1.1a1'
 
 from . import distrib, adversarial
 from .formatter import Formatter

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.1a]
+
+Fixing bugs, new version for gradium.
+
 ## [0.1.0a]
 
 Improve distributed with coalesced calls, and removing  synchronization points.
