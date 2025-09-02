@@ -81,13 +81,10 @@ def _is_complex_or_float(tensor):
 
 
 @contextmanager
-def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 8):
+def eager_sync_gradients(params: tp.Iterable[torch.Tensor]):
     """Similar to `sync_gradients`, except this is a context manager that will start syncing
     gradient as soon as they become available. This can be faster, but requires backward to be
     called no more than once!
-
-    `coalesce` controls how many network calls to merge together, giving faster speed by reducing
-    the overhead.
 
     ..Warning:: This will only synchronize gradients, for full model synchronization
         including buffers, use `eager_sync_model`.
@@ -103,32 +100,13 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 8):
     handles = []
     grads = []
     waiting_params = set(params)
-    pending_coalesces: tp.List[torch.Tensor] = []
-
-    def _flush():
-        if not pending_coalesces:
-            return
-        with torch.distributed._coalescing_manager(async_ops=True) as cm:
-            for tensor in pending_coalesces:
-                torch.distributed.all_reduce(tensor)
-
-        handles.append(cm)
-        pending_coalesces.clear()
-
-    def _push_all_reduce(tensor):
-        if coalesce == 0:
-            handle = torch.distributed.all_reduce(tensor, async_op=True)
-            handles.append(handle)
-        else:
-            pending_coalesces.append(tensor)
-            if len(pending_coalesces) >= coalesce:
-                _flush()
 
     def _callback(param):
         assert param.grad is not None
         if param not in waiting_params:
             raise RuntimeError(f"We got a gradient twice for parameter {param}.")
-        _push_all_reduce(param.grad.data)
+        handle = torch.distributed.all_reduce(param.grad.data, async_op=True)
+        handles.append(handle)
         grads.append(param.grad.data)
         waiting_params.remove(param)
 
@@ -138,7 +116,6 @@ def eager_sync_gradients(params: tp.Iterable[torch.Tensor], coalesce: int = 8):
     try:
         yield
     finally:
-        _flush()
         for hook in hooks:
             hook.remove()
         for handle in handles:
