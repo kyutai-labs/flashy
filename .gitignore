@@ -56,3 +56,4 @@ samples/
 # Artifacts
 .coverage
 /docs
+uv.lock
