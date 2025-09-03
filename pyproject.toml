@@ -1,2 +1,42 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flashy"
+description = "Minimal solver for deep learning"
+authors = [
+    {name = "Alexandre Défossez", email = "alex@gradium.ai"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.8.0"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = []
+dynamic = ["version", "dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/gradium-ai/flashy"
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "flake8",
+    "mypy",
+    "pdoc3",
+    "pytest",
+    "hydra_core"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "flashy.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.packages.find]
+include = ["flashy*"]
+
+[tool.setuptools.package-data]
+flashy = ["py.typed"]

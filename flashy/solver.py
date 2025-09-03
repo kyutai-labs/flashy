@@ -161,7 +161,7 @@ class BaseSolver:
     def restore(self) -> bool:
         if not self.checkpoint_path.exists():
             return False
-        state = torch.load(self.checkpoint_path, 'cpu')
+        state = torch.load(self.checkpoint_path, 'cpu', weights_only=False)
         self.load_state_dict(state)
         # TODO: Move to StandardSolver when it exists
         # if len(self.history) > 0:
