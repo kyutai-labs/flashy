@@ -13,7 +13,7 @@ install_ci:
 	pip install torch --index-url https://download.pytorch.org/whl/cpu
 	pip install git+https://github.com/facebookincubator/submitit@main#egg=submitit
 	pip install --no-use-pep517 git+https://git@github.com/facebookresearch/dora#egg=dora-search
-	pip install --no-use-pep517 -e '.[dev]'
+	pip install -e '.[dev]'
 
 
 linter:
