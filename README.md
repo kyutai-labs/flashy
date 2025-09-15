@@ -2,7 +2,6 @@
 
 ![tests badge](https://github.com/kyutai-labs/flashy/workflows/tests/badge.svg)
 ![linter badge](https://github.com/kyutai-labs/flashy/workflows/linter/badge.svg)
-![docs badge](https://github.com/kyutai-labs/flashy/workflows/docs/badge.svg)
 
 
 
