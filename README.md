@@ -4,7 +4,7 @@
 ![linter badge](https://github.com/kyutai-labs/flashy/workflows/linter/badge.svg)
 ![docs badge](https://github.com/kyutai-labs/flashy/workflows/docs/badge.svg)
 
-
+This is a fork of [facebookresearch/flashy](https://github.com/facebookresearch/flashy), as we diverged a bit from upstream.
 
 ## Motivations
 
