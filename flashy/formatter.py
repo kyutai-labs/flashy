@@ -88,5 +88,5 @@ class Formatter:
                 value = value.detach().item()
             new_metrics[key] = value
         return {
-            k: format(v, self._get_format(k)) for k, v in metrics.items()
+            k: format(v, self._get_format(k)) for k, v in new_metrics.items()
         }

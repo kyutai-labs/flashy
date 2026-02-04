@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 Fixing bugs, new version for gradium.
 
+Fixing bug in formatter, where excluded keys are ignored.
+
 ## [0.1.0a]
 
 Improve distributed with coalesced calls, and removing  synchronization points.
