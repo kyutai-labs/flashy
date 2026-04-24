@@ -33,9 +33,9 @@ def averager(beta: float = 1):
         counts = {}
         for key, value in list(metrics.items()):
             if key.startswith('_count_'):
-                key = key.removeprefix('_count_')
-                counts[key] = value
                 del metrics[key]
+                nkey = key.removeprefix('_count_')
+                counts[nkey] = value
         for key, value in metrics.items():
             count = counts.get(key, 1.)
             total[key] = total[key] * beta + count * weight * float(value)

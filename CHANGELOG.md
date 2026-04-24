@@ -10,6 +10,8 @@ Fixing bugs, new version for gradium.
 
 Fixing bug in formatter, where excluded keys are ignored.
 
+Fixing bug in `averager` when deleting the `_count_` key.
+
 ## [0.1.0a]
 
 Improve distributed with coalesced calls, and removing  synchronization points.
